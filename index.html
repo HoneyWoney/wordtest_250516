@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>영단어 오답 퀴즈 - 25.05.20</title>
+  <style>
+    body {
+      margin:0; padding:0;
+      background:#FFFAF0;
+      font-family:'맑은 고딕','Apple SD Gothic Neo',sans-serif;
+    }
+    .container {
+      max-width:500px;
+      margin:40px auto;
+      padding:20px;
+      background:#fff;
+      border-radius:20px;
+      box-shadow:0 0 10px rgba(0,0,0,0.1);
+      text-align:center;
+    }
+    h1 { margin-bottom:20px; color:#FF6F91; }
+    button {
+      margin:8px;
+      padding:10px 20px;
+      font-size:1em;
+      border:none;
+      border-radius:10px;
+      cursor:pointer;
+      background:#FFD3B6;
+      transition:transform .1s;
+    }
+    button:hover { transform:scale(1.05); }
+    input[type="text"] {
+      padding:8px;
+      font-size:1em;
+      border:2px solid #FF6F91;
+      border-radius:10px;
+      width:80%;
+    }
+    #question-num { font-size:.9em; color:#AAA; }
+    #question-area {
+      margin:20px 0;
+      font-size:1.3em;
+      color:#FF6F91;
+    }
+    .options { display:flex; flex-direction:column; }
+    .options button { background:#CBE7E0; }
+    #feedback {
+      margin:15px 0;
+      font-size:1.1em;
+      min-height:1.2em;
+    }
+    #next-btn { background:#A29BFE; }
+    #result-screen h2 { color:#FF6F91; }
+    #response { margin-top:10px; font-size:.9em; color:#333; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- 시작 화면 -->
+    <div id="start-screen">
+      <h1>영단어 오답 퀴즈</h1>
+      <p>이름을 입력하고 시작!</p>
+      <input type="text" id="name-input" placeholder="이름"/>
+      <br/>
+      <button id="start-btn">시작하기</button>
+    </div>
+
+    <!-- 퀴즈 화면 -->
+    <div id="quiz-screen" style="display:none;">
+      <div id="question-num"></div>
+      <div id="question-area"></div>
+      <div class="options" id="options-area"></div>
+      <div id="input-area" style="margin:10px 0;"></div>
+      <div id="feedback"></div>
+      <button id="next-btn" style="display:none;">다음</button>
+    </div>
+
+    <!-- 결과 화면 -->
+    <div id="result-screen" style="display:none;">
+      <h2>🎉 결과 🎉</h2>
+      <p id="score-display"></p>
+      <button id="submit-btn">점수 전송</button>
+      <p id="response"></p>
+    </div>
+
+  </div>
+
+  <script>
+    // 체크/컬러표시된 37개 오답만
+    const vocabList = [
+      {word:"oval",        meaning:"타원형의"},
+      {word:"ignorant",    meaning:"무지한, 무식한"},
+      {word:"beard",       meaning:"턱수염"},
+      {word:"wrist",       meaning:"손목"},
+      {word:"peculiar",    meaning:"이상한"},
+      {word:"offensive",   meaning:"공격적인"},
+      {word:"sorrow",      meaning:"슬픔"},
+      {word:"terrible",    meaning:"끔찍한"},
+      {word:"ashamed",     meaning:"부끄러워하는"},
+      {word:"depression",  meaning:"우울, 불경기"},
+      {word:"uneasy", meaning:"불안한"},
+      {word:"depressed",  meaning:"우울한"},
+      {word:"weep",       meaning:"울다"},
+      {word:"relieve",    meaning:"완화하다"},
+      {word:"sentiment",  meaning:"감정"},
+      {word:"relief",     meaning:"안심"},
+      {word:"jealous",    meaning:"질투하는"},
+      {word:"nerve",      meaning:"신경, 용기"},
+      {word:"envious",    meaning:"부러워하는"},
+      {word:"desperate",  meaning:"절망적인"},
+      {word:"resentful",  meaning:"분개하는"},
+      {word:"astound",    meaning:"놀라게 하다"},
+      {word:"panic",      meaning:"공포에 질리다"},
+      {word:"anniversary", meaning:"기념일"},
+      {word:"obedient",    meaning:"순종하는"},
+      {word:"nurture",     meaning:"양육하다"},
+      {word:"mature",      meaning:"성숙한"},
+      {word:"accompany",   meaning:"동행하다"},
+      {word:"spouse",      meaning:"배우자"},
+      {word:"impression",  meaning:"인상"},
+      {word:"attractive",  meaning:"매력적인, 사람을 끄는"},
+      {word:"passive",     meaning:"수동적인"},
+      {word:"confident",   meaning:"확신하는"},
+      {word:"impatient",   meaning:"성급한"},
+      {word:"ambitious",   meaning:"야망 있는"},
+      {word:"elegant",     meaning:"우아한"},
+      {word:"arrogant",    meaning:"오만한"}
+    ];
+
+    let playerName = "";
+    let currentSet = 1;
+    let qIndex = 0;
+    let score = 0;
+    let startTime;
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    document.getElementById("start-btn").onclick = () => {
+      const name = document.getElementById("name-input").value.trim();
+      if (!name) { alert("이름을 입력해주세요!"); return; }
+      playerName = name;
+      document.getElementById("start-screen").style.display = "none";
+      document.getElementById("quiz-screen").style.display = "block";
+      startTime = Date.now();
+      runQuestion();
+    };
+
+    function runQuestion() {
+      const total = vocabList.length;
+      document.getElementById("question-num").innerText =
+        `${currentSet}세트: ${qIndex+1} / ${total}`;
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("next-btn").style.display = "none";
+
+      const item = vocabList[qIndex];
+      const qa = document.getElementById("question-area");
+      const opts = document.getElementById("options-area");
+      const inpArea = document.getElementById("input-area");
+      opts.innerHTML = "";
+      inpArea.innerHTML = "";
+
+      if (currentSet === 1) {
+        // 1세트: 객관식
+        qa.innerText = `📝 단어: ${item.word}`;
+        const choices = shuffle([
+          item.meaning,
+          ...shuffle(vocabList.filter(v=>v.meaning!==item.meaning))
+            .slice(0,3).map(v=>v.meaning)
+        ]);
+        choices.forEach(ch => {
+          const btn = document.createElement("button");
+          btn.innerText = ch;
+          btn.onclick = () => checkMC(ch);
+          opts.appendChild(btn);
+        });
+      } else {
+        // 2~4세트: 주관식 빈칸 채우기
+        qa.innerText = `📝 뜻: ${item.meaning}`;
+        let ratio = currentSet===2?0.2 : currentSet===3?0.5 : 1.0;
+        const masked = maskWord(item.word, ratio);
+        const p = document.createElement("p");
+        p.innerText = masked;
+        inpArea.appendChild(p);
+        const inp = document.createElement("input");
+        inp.type="text"; inp.placeholder="정답을 입력하세요";
+        inpArea.appendChild(inp);
+        const btn = document.createElement("button");
+        btn.innerText="제출";
+        btn.onclick = () => checkInput(inp.value.trim());
+        inpArea.appendChild(btn);
+      }
+    }
+
+    function maskWord(word, hideRatio) {
+      const arr = word.split("");
+      const hideCount = Math.floor(arr.length * hideRatio);
+      const idxs = [];
+      while (idxs.length < hideCount) {
+        const i = Math.floor(Math.random() * arr.length);
+        if (!idxs.includes(i)) idxs.push(i);
+      }
+      idxs.forEach(i => arr[i] = "_");
+      return arr.join("");
+    }
+
+    function checkMC(choice) {
+      const item = vocabList[qIndex];
+      const fb = document.getElementById("feedback");
+      if (choice === item.meaning) {
+        score += 10;
+        fb.innerText = "🎉 정답입니다!";
+      } else {
+        fb.innerText = `✖ 틀렸습니다! 정답: ${item.meaning}`;
+      }
+      document.getElementById("next-btn").style.display = "inline-block";
+    }
+
+    function checkInput(answer) {
+      const item = vocabList[qIndex];
+      const fb = document.getElementById("feedback");
+      if (answer.toLowerCase() === item.word.toLowerCase()) {
+        score += 10;
+        fb.innerText = "🎉 정답입니다!";
+      } else {
+        fb.innerText = `✖ 틀렸습니다! 정답: ${item.word}`;
+      }
+      document.getElementById("next-btn").style.display = "inline-block";
+    }
+
+    document.getElementById("next-btn").onclick = () => {
+      qIndex++;
+      if (qIndex < vocabList.length) {
+        runQuestion();
+      } else if (currentSet < 4) {
+        currentSet++;
+        qIndex = 0;
+        runQuestion();
+      } else {
+        showResult();
+      }
+    };
+
+    function showResult() {
+      document.getElementById("quiz-screen").style.display = "none";
+      document.getElementById("result-screen").style.display = "block";
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      document.getElementById("score-display").innerText =
+        `${playerName}님, 총점: ${score}점 (소요: ${elapsed}초)`;
+    }
+
+    document.getElementById("submit-btn").onclick = () => {
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      saveData("wrongVocabQuiz", playerName, score, elapsed);
+    };
+
+    function saveData(game, name, score, elapsedTime) {
+      const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+      const requestData = {
+        game, name,
+        score: parseInt(score, 10),
+        elapsedTime: parseInt(elapsedTime, 10)
+      };
+      try {
+        fetch(FUNCTION_URL, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(requestData)
+        })
+        .then(res=>res.json().then(data=>{
+          if (res.ok) {
+            document.getElementById('response').innerText =
+              `성공: ${JSON.stringify(data, null,2)}`;
+          } else {
+            document.getElementById('response').innerText =
+              `오류: ${JSON.stringify(data, null,2)}`;
+          }
+        }));
+      } catch(err) {
+        console.error(err);
+        document.getElementById('response').innerText =
+          `네트워크 오류: ${err.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
